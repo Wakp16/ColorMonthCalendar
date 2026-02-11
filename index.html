@@ -1,290 +1,112 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Momentum</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#10182b" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Color Month Calendar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <div class="month-nav" role="group" aria-label="Month navigation">
+          <button id="prevMonth" class="ghost" type="button" aria-label="Previous month">
+            Prev
+          </button>
+          <button id="todayMonth" class="ghost" type="button" aria-label="Jump to current month">
+            Today
+          </button>
+          <button id="nextMonth" class="ghost" type="button" aria-label="Next month">
+            Next
+          </button>
+        </div>
+        <div class="hero-center">
+          <h1 id="monthTitle">Month YYYY</h1>
+          <p id="pageName" class="page-name">Page 1</p>
+        </div>
+        <div class="legend">
+          <button id="clearAll" class="ghost" type="button">Clear month</button>
+        </div>
+      </header>
 
-  <!-- PWA Manifest -->
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#000000">
+      <section class="pages">
+        <div class="page-tabs" id="pageTabs" aria-label="Pages"></div>
+        <div class="page-actions">
+          <button id="addPage" class="ghost" type="button">Add page</button>
+          <button id="renamePage" class="ghost" type="button">Rename</button>
+          <button id="deletePage" class="ghost danger" type="button">Delete</button>
+        </div>
+      </section>
 
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar/index.global.min.js"></script>
-  <style>
-    body {
-      margin:0;
-      display:flex;
-      height:100vh;
-      background:#000;
-      color:#fff;
-      font-family:Arial,sans-serif;
-    }
+      <section class="tools" aria-label="Calendar tools">
+        <button id="multiSelectToggle" class="ghost" type="button" aria-pressed="false">
+          Multi-select: Off
+        </button>
+        <button id="applyColor" class="ghost" type="button" disabled>
+          Color selection
+        </button>
+        <button id="clearSelection" class="ghost" type="button" disabled>
+          Clear selection
+        </button>
+      </section>
+      <p id="selectionHint" class="selection-hint">
+        Turn on multi-select to color multiple dates at once.
+      </p>
+      <p id="statusMessage" class="status-message" role="status" aria-live="polite"></p>
 
-    .sidebar {
-      width:220px;
-      border-right:1px solid #222;
-      padding:14px;
-    }
+      <section class="calendar" aria-label="Monthly calendar">
+        <div class="weekdays" id="weekdays"></div>
+        <div class="grid" id="calendarGrid" role="grid" aria-label="Calendar days"></div>
+      </section>
+    </main>
 
-    .page {
-      padding:10px;
-      margin-bottom:8px;
-      background:#111;
-      border-radius:10px;
-      cursor:pointer;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-    }
-
-    .page.active { outline:2px solid #fff; }
-
-    .page-buttons { display:flex; gap:4px; }
-
-    .edit-btn, .delete-btn {
-      background:#444;
-      color:#fff;
-      border:none;
-      border-radius:6px;
-      padding:2px 6px;
-      cursor:pointer;
-      font-size:12px;
-      box-shadow:0 0 6px #888;
-      transition:0.2s;
-    }
-    .edit-btn:hover, .delete-btn:hover { box-shadow:0 0 12px #fff; }
-
-    .add-page {
-      margin-top:12px;
-      padding:10px;
-      background:#00ff66;
-      color:#000;
-      border-radius:12px;
-      text-align:center;
-      cursor:pointer;
-      font-weight:bold;
-      box-shadow:0 0 6px #00ff66;
-      transition:0.2s;
-    }
-    .add-page:hover { box-shadow:0 0 12px #00ff66; }
-
-    .main { flex:1; padding:14px; }
-
-    #calendar {
-      width:100%;
-      height:100%;
-      background:#000;
-      border-radius:16px;
-      padding:10px;
-      border:1px solid #222;
-    }
-
-    .controls {
-      margin-top:14px;
-      display:flex;
-      align-items:center;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    input {
-      padding:8px 10px;
-      background:#000;
-      color:#fff;
-      border:1px solid #444;
-      border-radius:10px;
-      box-shadow:0 0 6px #888;
-      transition:0.2s;
-    }
-    input:focus { box-shadow:0 0 12px #fff; outline:none; }
-
-    button {
-      padding:8px 14px;
-      border:none;
-      cursor:pointer;
-      border-radius:12px;
-      font-weight:bold;
-      box-shadow:0 0 6px #888;
-      transition:0.2s;
-    }
-    button:hover { box-shadow:0 0 14px #fff; }
-
-    .green { background:#00ff66; color:#000; }
-    .red { background:#ff3b3b; color:#000; }
-    .reset { background:#ff00ff; color:#fff; }
-    .clear-color { background:#ffaa00; color:#000; }
-
-    .fc-daygrid-event {
-      display:block;
-      width:100%;
-      height:100%;
-      border-radius:12px;
-      text-align:center;
-      color:#000 !important;
-      font-weight:bold;
-    }
-
-    .fc-daygrid-day:hover {
-      outline:4px solid #fff;
-      border-radius:12px;
-      cursor:pointer;
-      box-shadow:0 0 16px #888;
-    }
-
-    .fc-daygrid-day.selected {
-      box-shadow:0 0 20px 5px purple;
-      border-radius:12px;
-      border:4px solid purple;
-    }
-
-    .fc-day-other { display:none !important; }
-  </style>
-</head>
-<body>
-  <div class="sidebar">
-    <div id="pages"></div>
-    <div class="add-page" onclick="addPage()">+ Add Page</div>
-  </div>
-
-  <div class="main">
-    <div id="calendar"></div>
-    <div class="controls">
-      <input id="label" placeholder="Day label" />
-      <button class="green" onclick="markDay('green')">Green</button>
-      <button class="red" onclick="markDay('red')">Red</button>
-      <button class="clear-color" onclick="clearDayColor()">Remove Color</button>
-      <button class="reset" onclick="resetCalendar()">Reset</button>
+    <div class="modal" id="colorModal" aria-hidden="true" role="dialog" aria-modal="true">
+      <div class="modal-card" role="document" aria-labelledby="modalTitle">
+        <h2 id="modalTitle">Choose a color</h2>
+        <div class="modal-actions">
+          <button class="pick green" type="button" data-color="green">Green</button>
+          <button class="pick red" type="button" data-color="red">Red</button>
+          <button class="pick clear" type="button" data-color="clear">Clear</button>
+        </div>
+        <button class="ghost" id="closeModal" type="button">Cancel</button>
+      </div>
     </div>
-  </div>
 
-  <script>
-    // PWA Service Worker registration
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./service-worker.js', {scope: './'})
-        .then(() => console.log('Service Worker Registered'))
-        .catch(err => console.log('Service Worker registration failed:', err));
-    }
+    <div class="modal" id="pageModal" aria-hidden="true" role="dialog" aria-modal="true">
+      <div class="modal-card" role="document" aria-labelledby="pageModalTitle">
+        <h2 id="pageModalTitle">Rename page</h2>
+        <div class="modal-body">
+          <label class="field-label" for="pageNameInput">Page name</label>
+          <input id="pageNameInput" class="field-input" type="text" />
+          <p id="pageModalHint" class="field-hint"></p>
+        </div>
+        <div class="modal-actions">
+          <button id="pageModalConfirm" class="pick green" type="button">Save</button>
+          <button class="pick clear" id="pageModalCancel" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
 
-    let currentPage = localStorage.getItem('currentPage') || 'Page 1';
-    let pages = JSON.parse(localStorage.getItem('pages')) || ['Page 1'];
-    let pageData = JSON.parse(localStorage.getItem('pageData')) || {};
-    if (!pageData[currentPage]) pageData[currentPage] = {};
-    let selectedDate = null;
-    let lastCell = null;
-    let calendar;
-
-    function saveData() {
-      localStorage.setItem('pageData', JSON.stringify(pageData));
-      localStorage.setItem('pages', JSON.stringify(pages));
-      localStorage.setItem('currentPage', currentPage);
-    }
-
-    function renderPages() {
-      const container = document.getElementById('pages');
-      container.innerHTML = '';
-      pages.forEach(p => {
-        const div = document.createElement('div');
-        div.className = 'page' + (p === currentPage ? ' active' : '');
-        div.innerHTML = `<span>${p}</span> <div class='page-buttons'><button class='edit-btn' onclick='renamePage("${p}")'>✎</button><button class='delete-btn' onclick='deletePage("${p}")'>🗑</button></div>`;
-        div.onclick = () => switchPage(p);
-        container.appendChild(div);
-      });
-    }
-
-    function switchPage(page) {
-      currentPage = page;
-      if (!pageData[currentPage]) pageData[currentPage] = {};
-      saveData();
-      renderCalendar();
-      renderPages();
-    }
-
-    function addPage() {
-      const name = prompt('Page name');
-      if (!name || pages.includes(name)) return;
-      pages.push(name);
-      currentPage = name;
-      pageData[currentPage] = {};
-      saveData();
-      renderPages();
-      renderCalendar();
-    }
-
-    function renamePage(oldName) {
-      const newName = prompt('Rename page', oldName);
-      if (!newName || pages.includes(newName)) return;
-      const idx = pages.indexOf(oldName);
-      pages[idx] = newName;
-      pageData[newName] = pageData[oldName];
-      delete pageData[oldName];
-      if (currentPage === oldName) currentPage = newName;
-      saveData();
-      renderPages();
-      renderCalendar();
-    }
-
-    function deletePage(name) {
-      if (!confirm(`Are you sure you want to delete page '${name}'?`)) return;
-      const idx = pages.indexOf(name);
-      if (idx > -1) pages.splice(idx, 1);
-      delete pageData[name];
-      if (currentPage === name) currentPage = pages[0] || null;
-      saveData();
-      renderPages();
-      renderCalendar();
-    }
-
-    function resetCalendar() {
-      if (!confirm('Are you sure you want to reset this page?')) return;
-      pageData[currentPage] = {};
-      saveData();
-      renderCalendar();
-    }
-
-    function clearDayColor() {
-      if (!selectedDate) return;
-      delete pageData[currentPage][selectedDate];
-      saveData();
-      renderCalendar();
-    }
-
-    function renderCalendar() {
-      if (calendar) calendar.destroy();
-      calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
-        initialView: 'dayGridMonth',
-        showNonCurrentDates: false,
-        dateClick(info) {
-          selectedDate = info.dateStr;
-          if (lastCell) lastCell.classList.remove('selected');
-          const cell = info.dayEl;
-          if (cell) { cell.classList.add('selected'); lastCell = cell; }
-        },
-        events: Object.values(pageData[currentPage] || {}),
-        eventDidMount: function(info) {
-          const cell = info.el.closest('.fc-daygrid-day');
-          if (cell) {
-            cell.style.backgroundColor = info.event.backgroundColor;
-            cell.style.borderRadius='12px';
-          }
-        }
-      });
-      calendar.render();
-    }
-
-    function markDay(color) {
-      if (!selectedDate) return;
-      const label = document.getElementById('label').value;
-      const bg = color === 'green' ? '#00ff66' : '#ff3b3b';
-      pageData[currentPage][selectedDate] = { title: label, start: selectedDate, backgroundColor:bg, borderColor:bg };
-      saveData();
-      renderCalendar();
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-      if (!pageData[currentPage]) pageData[currentPage] = {};
-      renderPages();
-      renderCalendar();
-    });
-  </script>
-</body>
+    <script src="app.js"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("./sw.js").catch((error) => {
+            console.error("Service worker registration failed:", error);
+          });
+        });
+      }
+    </script>
+  </body>
 </html>
