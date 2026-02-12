@@ -4,10 +4,13 @@ const calendarGrid = document.getElementById("calendarGrid");
 const weekdays = document.getElementById("weekdays");
 const selectionHint = document.getElementById("selectionHint");
 const statusMessage = document.getElementById("statusMessage");
+const calendarSection = document.querySelector(".calendar");
 
 const prevMonthBtn = document.getElementById("prevMonth");
 const todayMonthBtn = document.getElementById("todayMonth");
 const nextMonthBtn = document.getElementById("nextMonth");
+const monthViewBtn = document.getElementById("monthViewBtn");
+const yearViewBtn = document.getElementById("yearViewBtn");
 
 const colorModal = document.getElementById("colorModal");
 const modalTitle = document.getElementById("modalTitle");
@@ -31,15 +34,31 @@ const pageModalConfirm = document.getElementById("pageModalConfirm");
 const pageModalCancel = document.getElementById("pageModalCancel");
 
 const weekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const monthNames = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
 const STORAGE_DATA_VERSION_KEY = "calendar-data-version";
 const STORAGE_DATA_VERSION = "2";
 
 const now = new Date();
 let viewYear = now.getFullYear();
 let viewMonth = now.getMonth();
+let viewMode = "month";
 
 let activeDateKey = null;
 let focusedDateKey = null;
+let focusedYearDateKey = null;
 let activePageId = null;
 let pageModalMode = "rename";
 let multiSelectEnabled = false;
@@ -86,6 +105,12 @@ function isDateKeyInView(dateKey) {
   const parsed = parseDateKey(dateKey);
   if (!parsed) return false;
   return parsed.year === viewYear && parsed.month === viewMonth;
+}
+
+function isDateKeyInViewYear(dateKey) {
+  const parsed = parseDateKey(dateKey);
+  if (!parsed) return false;
+  return parsed.year === viewYear;
 }
 
 function getPageStorageKey(pageId) {
@@ -183,6 +208,11 @@ function clearSelection() {
 }
 
 function updateSelectionHint() {
+  if (viewMode === "year") {
+    selectionHint.textContent = "Year view is overview-only. Select a date to jump into month view.";
+    return;
+  }
+
   if (!multiSelectEnabled) {
     selectionHint.textContent = "Turn on multi-select to color multiple dates at once.";
     return;
@@ -201,7 +231,13 @@ function getDayButton(dateKey) {
   return calendarGrid.querySelector(`.day[data-date-key="${dateKey}"]`);
 }
 
+function getYearDayButton(dateKey) {
+  return calendarGrid.querySelector(`.year-day[data-date-key="${dateKey}"]`);
+}
+
 function setActiveDate(dateKey) {
+  if (viewMode !== "month") return;
+
   if (activeDateKey && activeDateKey !== dateKey) {
     const previous = getDayButton(activeDateKey);
     if (previous) {
@@ -232,20 +268,44 @@ function setDateSelection(dateKey, shouldSelect) {
   }
 }
 
+function syncViewModeButtons() {
+  const isMonthView = viewMode === "month";
+
+  monthViewBtn.classList.toggle("active", isMonthView);
+  monthViewBtn.setAttribute("aria-pressed", String(isMonthView));
+
+  yearViewBtn.classList.toggle("active", !isMonthView);
+  yearViewBtn.setAttribute("aria-pressed", String(!isMonthView));
+}
+
 function syncToolState() {
+  const isMonthView = viewMode === "month";
+
   multiSelectToggle.textContent = `Multi-select: ${multiSelectEnabled ? "On" : "Off"}`;
   multiSelectToggle.classList.toggle("active", multiSelectEnabled);
   multiSelectToggle.setAttribute("aria-pressed", String(multiSelectEnabled));
+  multiSelectToggle.disabled = !isMonthView;
 
-  const canApplySelection = multiSelectEnabled && selectedDates.size > 0;
+  const canApplySelection = isMonthView && multiSelectEnabled && selectedDates.size > 0;
   applyColorBtn.disabled = !canApplySelection;
   applyColorBtn.title = canApplySelection
     ? "Apply a color to selected dates"
     : "Select one or more dates while multi-select is on";
 
-  clearSelectionBtn.disabled = selectedDates.size === 0;
+  clearSelectionBtn.disabled = !isMonthView || selectedDates.size === 0;
   clearSelectionBtn.title =
     selectedDates.size > 0 ? "Clear selected dates" : "No selected dates";
+
+  clearAllBtn.disabled = !isMonthView;
+  clearAllBtn.title = isMonthView
+    ? "Clear marks for this visible month"
+    : "Switch to month view to clear a month";
+
+  if (!isMonthView) {
+    multiSelectToggle.title = "Switch to month view to use multi-select";
+  } else {
+    multiSelectToggle.title = "Select multiple dates in month view";
+  }
 
   updateSelectionHint();
 }
@@ -307,7 +367,7 @@ function formatReadableDate(dateKey) {
   });
 }
 
-function renderCalendar() {
+function renderMonthView() {
   const monthStart = new Date(viewYear, viewMonth, 1);
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const startWeekday = monthStart.getDay();
@@ -318,6 +378,14 @@ function renderCalendar() {
     month: "long",
     year: "numeric",
   });
+
+  weekdays.hidden = false;
+  weekdays.style.display = "";
+  calendarSection.classList.remove("year-view");
+  calendarGrid.classList.remove("year-grid");
+  calendarGrid.classList.add("grid");
+  calendarGrid.setAttribute("role", "grid");
+  calendarGrid.setAttribute("aria-label", "Calendar days");
 
   if (activeDateKey && !isDateKeyInView(activeDateKey)) {
     activeDateKey = null;
@@ -372,7 +440,7 @@ function renderCalendar() {
 
     const status = document.createElement("div");
     status.className = "status";
-    status.textContent = currentStatus ? currentStatus : "";
+    status.textContent = "";
     cell.appendChild(status);
 
     fragment.appendChild(cell);
@@ -381,7 +449,8 @@ function renderCalendar() {
   calendarGrid.appendChild(fragment);
 
   if (!focusedDateKey || !visibleDateKeys.includes(focusedDateKey)) {
-    focusedDateKey = activeDateKey && visibleDateKeys.includes(activeDateKey) ? activeDateKey : visibleDateKeys[0] || null;
+    focusedDateKey =
+      activeDateKey && visibleDateKeys.includes(activeDateKey) ? activeDateKey : visibleDateKeys[0] || null;
   }
 
   calendarGrid.querySelectorAll(".day").forEach((cell) => {
@@ -395,12 +464,118 @@ function renderCalendar() {
       focusedCell.tabIndex = 0;
     }
   }
+}
 
+function renderYearView() {
+  const state = loadState(activePageId);
+  const todayKey = toDateKey(now.getFullYear(), now.getMonth(), now.getDate());
+
+  monthTitle.textContent = String(viewYear);
+
+  weekdays.hidden = true;
+  weekdays.style.display = "none";
+  calendarSection.classList.add("year-view");
+  calendarGrid.classList.remove("grid");
+  calendarGrid.classList.add("year-grid");
+  calendarGrid.setAttribute("role", "grid");
+  calendarGrid.setAttribute("aria-label", "Calendar year days");
+
+  activeDateKey = null;
+  focusedDateKey = null;
+  visibleDateKeys = [];
+  calendarGrid.innerHTML = "";
+
+  const yearFragment = document.createDocumentFragment();
+
+  for (let month = 0; month < 12; month += 1) {
+    const monthCard = document.createElement("section");
+    monthCard.className = "year-month-card";
+
+    const monthHeading = document.createElement("h3");
+    monthHeading.className = "year-month-title";
+    monthHeading.textContent = monthNames[month];
+    monthCard.appendChild(monthHeading);
+
+    const daysContainer = document.createElement("div");
+    daysContainer.className = "year-days";
+
+    const monthStart = new Date(viewYear, month, 1);
+    const startWeekday = monthStart.getDay();
+    const daysInMonth = new Date(viewYear, month + 1, 0).getDate();
+
+    for (let i = 0; i < startWeekday; i += 1) {
+      const empty = document.createElement("div");
+      empty.className = "year-day empty";
+      empty.setAttribute("aria-hidden", "true");
+      daysContainer.appendChild(empty);
+    }
+
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const dateKey = toDateKey(viewYear, month, day);
+      visibleDateKeys.push(dateKey);
+
+      const cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = "year-day";
+      cell.dataset.dateKey = dateKey;
+      cell.setAttribute("aria-label", formatReadableDate(dateKey));
+
+      if (dateKey === todayKey) {
+        cell.classList.add("today");
+      }
+
+      const currentStatus = state[dateKey];
+      if (currentStatus) {
+        cell.classList.add(currentStatus);
+      }
+
+      daysContainer.appendChild(cell);
+    }
+
+    monthCard.appendChild(daysContainer);
+    yearFragment.appendChild(monthCard);
+  }
+
+  calendarGrid.appendChild(yearFragment);
+
+  if (!focusedYearDateKey || !isDateKeyInViewYear(focusedYearDateKey)) {
+    focusedYearDateKey = now.getFullYear() === viewYear ? todayKey : visibleDateKeys[0] || null;
+  }
+
+  calendarGrid.querySelectorAll(".year-day").forEach((cell) => {
+    if (cell.classList.contains("empty")) return;
+    cell.tabIndex = -1;
+    cell.classList.remove("focused");
+  });
+
+  if (focusedYearDateKey) {
+    const focusedCell = getYearDayButton(focusedYearDateKey);
+    if (focusedCell) {
+      focusedCell.tabIndex = 0;
+      focusedCell.classList.add("focused");
+    }
+  }
+}
+
+function renderCalendar() {
+  if (viewMode === "year") {
+    renderYearView();
+  } else {
+    renderMonthView();
+  }
+
+  syncViewModeButtons();
   syncToolState();
 }
 
 function focusDateButton(dateKey) {
   const button = calendarGrid.querySelector(`.day[data-date-key="${dateKey}"]`);
+  if (!button) return;
+  button.focus();
+}
+
+function focusYearDateButton(dateKey) {
+  const button = calendarGrid.querySelector(`.year-day[data-date-key="${dateKey}"]`);
   if (!button) return;
   button.focus();
 }
@@ -456,6 +631,8 @@ function restoreModalTriggerFocus() {
 }
 
 function openModal(dateKey, triggerElement = document.activeElement) {
+  if (viewMode !== "month") return;
+
   activeDateKey = dateKey;
   lastModalTrigger = triggerElement;
 
@@ -485,7 +662,7 @@ function closeModalDialog() {
 function openPageModal(mode, triggerElement = document.activeElement) {
   const pages = getPages();
   const activePage = pages.find((page) => page.id === activePageId);
-  if (!activePage) return;
+  if (!activePage && mode !== "add") return;
 
   pageModalMode = mode;
   lastModalTrigger = triggerElement;
@@ -493,7 +670,17 @@ function openPageModal(mode, triggerElement = document.activeElement) {
   pageModal.classList.add("open");
   pageModal.setAttribute("aria-hidden", "false");
 
-  if (mode === "rename") {
+  if (mode === "add") {
+    pageModalTitle.textContent = "Add page";
+    pageModalHint.textContent = "";
+    pageNameInput.value = `Page ${pages.length + 1}`;
+    pageNameInput.disabled = false;
+    pageModalConfirm.textContent = "Create";
+    pageModalConfirm.classList.remove("danger");
+    pageModalConfirm.classList.add("green");
+    pageNameInput.focus();
+    pageNameInput.select();
+  } else if (mode === "rename") {
     pageModalTitle.textContent = "Rename page";
     pageModalHint.textContent = "";
     pageNameInput.value = activePage.name;
@@ -544,8 +731,9 @@ function selectRange(fromDateKey, toDateKey) {
 function updateDateColor(color) {
   if (!activeDateKey && !(multiSelectEnabled && selectedDates.size > 0)) return;
 
+  const usedMultiSelection = multiSelectEnabled && selectedDates.size > 0;
   const state = loadState(activePageId);
-  const targets = multiSelectEnabled && selectedDates.size > 0 ? Array.from(selectedDates) : [activeDateKey];
+  const targets = usedMultiSelection ? Array.from(selectedDates) : [activeDateKey];
 
   let affected = 0;
 
@@ -564,6 +752,9 @@ function updateDateColor(color) {
   });
 
   saveState(activePageId, state);
+  if (usedMultiSelection) {
+    clearSelection();
+  }
   renderCalendar();
   closeModalDialog();
 
@@ -577,9 +768,18 @@ function updateDateColor(color) {
     focusedDateKey = targets[0];
     focusDateButton(targets[0]);
   }
+
 }
 
 function shiftMonth(delta) {
+  if (viewMode === "year") {
+    viewYear += delta;
+    focusedYearDateKey = toDateKey(viewYear, viewMonth, 1);
+    clearSelection();
+    renderCalendar();
+    return;
+  }
+
   const next = new Date(viewYear, viewMonth + delta, 1);
   viewYear = next.getFullYear();
   viewMonth = next.getMonth();
@@ -592,11 +792,23 @@ function jumpToTodayMonth() {
   viewYear = now.getFullYear();
   viewMonth = now.getMonth();
   clearSelection();
+
+  if (viewMode === "year") {
+    focusedYearDateKey = toDateKey(viewYear, viewMonth, now.getDate());
+    renderCalendar();
+    return;
+  }
+
   focusedDateKey = toDateKey(viewYear, viewMonth, now.getDate());
   renderCalendar();
 }
 
 function clearCurrentMonth() {
+  if (viewMode !== "month") {
+    setStatus("Switch to month view to clear a month.");
+    return;
+  }
+
   const state = loadState(activePageId);
   const prefix = `${viewYear}-${pad2(viewMonth + 1)}-`;
   let removed = 0;
@@ -616,7 +828,32 @@ function clearCurrentMonth() {
   setStatus(removed > 0 ? `Cleared ${removed} marks for this month.` : "No marks to clear in this month.");
 }
 
+function openYearDateInMonthView(dateKey, triggerElement = document.activeElement) {
+  const parsed = parseDateKey(dateKey);
+  if (!parsed) return;
+
+  clearSelection();
+  viewYear = parsed.year;
+  viewMonth = parsed.month;
+  viewMode = "month";
+  focusedDateKey = dateKey;
+  activeDateKey = dateKey;
+  renderCalendar();
+  focusDateButton(dateKey);
+  lastModalTrigger = triggerElement;
+}
+
 calendarGrid.addEventListener("click", (event) => {
+  if (viewMode === "year") {
+    const target = event.target.closest(".year-day");
+    if (!target || target.classList.contains("empty")) return;
+    const dateKey = target.dataset.dateKey;
+    if (!dateKey) return;
+    focusedYearDateKey = dateKey;
+    openYearDateInMonthView(dateKey, target);
+    return;
+  }
+
   const target = event.target.closest(".day");
   if (!target || target.classList.contains("empty")) return;
 
@@ -646,6 +883,36 @@ calendarGrid.addEventListener("keydown", (event) => {
   if (colorModal.classList.contains("open") || pageModal.classList.contains("open")) return;
 
   if (!visibleDateKeys.length) return;
+
+  if (viewMode === "year") {
+    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+      event.preventDefault();
+
+      let index = visibleDateKeys.indexOf(focusedYearDateKey);
+      if (index < 0) index = 0;
+
+      let delta = 0;
+      if (event.key === "ArrowLeft") delta = -1;
+      if (event.key === "ArrowRight") delta = 1;
+      if (event.key === "ArrowUp") delta = -7;
+      if (event.key === "ArrowDown") delta = 7;
+
+      const nextIndex = Math.max(0, Math.min(visibleDateKeys.length - 1, index + delta));
+      const nextDateKey = visibleDateKeys[nextIndex];
+      focusedYearDateKey = nextDateKey;
+      renderCalendar();
+      focusYearDateButton(nextDateKey);
+      return;
+    }
+
+    if ((event.key === "Enter" || event.key === " ") && focusedYearDateKey) {
+      event.preventDefault();
+      const trigger = getYearDayButton(focusedYearDateKey);
+      openYearDateInMonthView(focusedYearDateKey, trigger || document.activeElement);
+    }
+
+    return;
+  }
 
   if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
     event.preventDefault();
@@ -704,6 +971,11 @@ colorModal.querySelectorAll(".pick[data-color]").forEach((button) => {
 clearAllBtn.addEventListener("click", clearCurrentMonth);
 
 multiSelectToggle.addEventListener("click", () => {
+  if (viewMode !== "month") {
+    setStatus("Switch to month view to use multi-select.");
+    return;
+  }
+
   multiSelectEnabled = !multiSelectEnabled;
 
   if (!multiSelectEnabled) {
@@ -718,7 +990,7 @@ multiSelectToggle.addEventListener("click", () => {
 });
 
 applyColorBtn.addEventListener("click", () => {
-  if (applyColorBtn.disabled) return;
+  if (viewMode !== "month" || applyColorBtn.disabled) return;
   const fallbackKey = lastSelectedDateKey || Array.from(selectedDates)[0];
   if (!fallbackKey) return;
   const trigger = calendarGrid.querySelector(`.day[data-date-key="${fallbackKey}"]`) || applyColorBtn;
@@ -726,9 +998,31 @@ applyColorBtn.addEventListener("click", () => {
 });
 
 clearSelectionBtn.addEventListener("click", () => {
+  if (viewMode !== "month") return;
   clearSelection();
   renderCalendar();
   setStatus("Selection cleared.");
+});
+
+monthViewBtn.addEventListener("click", () => {
+  if (viewMode === "month") return;
+  viewMode = "month";
+  focusedDateKey = toDateKey(viewYear, viewMonth, 1);
+  renderCalendar();
+});
+
+yearViewBtn.addEventListener("click", () => {
+  if (viewMode === "year") return;
+  viewMode = "year";
+  clearSelection();
+
+  if (focusedDateKey && isDateKeyInViewYear(focusedDateKey)) {
+    focusedYearDateKey = focusedDateKey;
+  } else {
+    focusedYearDateKey = toDateKey(viewYear, 0, 1);
+  }
+
+  renderCalendar();
 });
 
 pageTabs.addEventListener("click", (event) => {
@@ -746,16 +1040,7 @@ pageTabs.addEventListener("click", (event) => {
 });
 
 addPageBtn.addEventListener("click", () => {
-  const pages = getPages();
-  const newPage = { id: crypto.randomUUID(), name: `Page ${pages.length + 1}` };
-  pages.push(newPage);
-  savePages(pages);
-  setActivePageId(newPage.id);
-
-  clearSelection();
-  renderPages();
-  renderCalendar();
-  setStatus("Page added.");
+  openPageModal("add", addPageBtn);
 });
 
 renamePageBtn.addEventListener("click", () => {
@@ -771,6 +1056,27 @@ pageModalCancel.addEventListener("click", closePageModal);
 pageModalConfirm.addEventListener("click", () => {
   const pages = getPages();
   const activePage = pages.find((page) => page.id === activePageId);
+
+  if (pageModalMode === "add") {
+    const nextName = pageNameInput.value.trim();
+    if (!nextName) {
+      pageModalHint.textContent = "Please enter a page name.";
+      return;
+    }
+
+    const newPage = { id: crypto.randomUUID(), name: nextName };
+    pages.push(newPage);
+    savePages(pages);
+    setActivePageId(newPage.id);
+
+    clearSelection();
+    renderPages();
+    renderCalendar();
+    closePageModal();
+    setStatus("Page added.");
+    return;
+  }
+
   if (!activePage) return;
 
   if (pageModalMode === "rename") {
@@ -830,4 +1136,5 @@ activePageId = getActivePageId();
 migrateLegacyData();
 renderPages();
 focusedDateKey = toDateKey(viewYear, viewMonth, 1);
+focusedYearDateKey = toDateKey(viewYear, 0, 1);
 renderCalendar();

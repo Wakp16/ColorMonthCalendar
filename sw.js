@@ -1,4 +1,5 @@
-const CACHE_NAME = "calendar-pwa-v1";
+const CACHE_NAME = "calendar-pwa-v2";
+const NETWORK_FIRST_FILES = ["index.html", "app.js", "styles.css", "manifest.webmanifest"];
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -33,6 +34,11 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
+  const url = new URL(request.url);
+  const isSameOrigin = url.origin === self.location.origin;
+  const pathname = url.pathname;
+  const shouldUseNetworkFirst =
+    pathname === "/" || NETWORK_FIRST_FILES.some((file) => pathname.endsWith(`/${file}`));
 
   // Keep navigation resilient offline by falling back to index.
   if (request.mode === "navigate") {
@@ -46,6 +52,21 @@ self.addEventListener("fetch", (event) => {
         .catch(() =>
           caches.match("./index.html").then((cached) => cached || caches.match("./"))
         )
+    );
+    return;
+  }
+
+  if (isSameOrigin && shouldUseNetworkFirst) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request))
     );
     return;
   }

@@ -81,6 +81,7 @@ h1 {
 }
 
 .month-nav,
+.view-mode,
 .legend,
 .page-actions,
 .tools,
@@ -92,6 +93,10 @@ h1 {
 
 .month-nav {
   justify-content: flex-start;
+}
+
+.view-mode {
+  justify-content: center;
 }
 
 .legend {
@@ -192,6 +197,10 @@ h1 {
   box-shadow: var(--shadow-lg);
 }
 
+.calendar.year-view .weekdays {
+  display: none;
+}
+
 .weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -210,6 +219,12 @@ h1 {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 8px;
+}
+
+.year-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .day {
@@ -243,6 +258,7 @@ h1 {
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.12em;
+  display: none;
 }
 
 .day.empty {
@@ -252,18 +268,105 @@ h1 {
   background: rgba(255, 255, 255, 0.01);
 }
 
+.year-month-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 10px;
+}
+
+.year-month-title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--ink-strong);
+}
+
+.year-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.year-weekdays span {
+  text-align: center;
+}
+
+.year-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.year-day {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 28px;
+  padding: 3px 0;
+  cursor: pointer;
+  color: var(--ink);
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.008));
+}
+
+.year-day .date {
+  display: block;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.year-day:hover {
+  border-color: var(--line-strong);
+}
+
+.year-day.empty {
+  border-style: dashed;
+  opacity: 0.28;
+  cursor: default;
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.year-day.today {
+  border-color: rgba(128, 183, 255, 0.58);
+}
+
+.year-day.green {
+  background: linear-gradient(170deg, rgba(78, 230, 166, 0.44), rgba(78, 230, 166, 0.22));
+  border-color: rgba(78, 230, 166, 0.76);
+}
+
+.year-day.red {
+  background: linear-gradient(170deg, rgba(255, 121, 133, 0.45), rgba(255, 121, 133, 0.22));
+  border-color: rgba(255, 121, 133, 0.78);
+}
+
+.year-day.focused {
+  border-color: var(--line);
+  box-shadow: none;
+}
+
+.year-day:focus-visible {
+  box-shadow: none;
+  border-color: var(--line-strong);
+}
+
 .day.today {
   border-color: rgba(128, 183, 255, 0.55);
 }
 
 .day.green {
-  background: linear-gradient(170deg, rgba(78, 230, 166, 0.29), rgba(78, 230, 166, 0.15));
-  border-color: rgba(78, 230, 166, 0.6);
+  background: linear-gradient(170deg, rgba(78, 230, 166, 0.48), rgba(78, 230, 166, 0.25));
+  border-color: rgba(78, 230, 166, 0.82);
 }
 
 .day.red {
-  background: linear-gradient(170deg, rgba(255, 121, 133, 0.29), rgba(255, 121, 133, 0.15));
-  border-color: rgba(255, 121, 133, 0.62);
+  background: linear-gradient(170deg, rgba(255, 121, 133, 0.5), rgba(255, 121, 133, 0.26));
+  border-color: rgba(255, 121, 133, 0.84);
 }
 
 .day.selected {
@@ -422,6 +525,7 @@ input:focus-visible {
   }
 
   .month-nav,
+  .view-mode,
   .legend,
   .page-actions {
     justify-content: center;
@@ -461,9 +565,24 @@ input:focus-visible {
     gap: 6px;
   }
 
+  .year-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
   .day {
     min-height: 68px;
     padding: 7px;
+  }
+
+  .year-day {
+    min-height: 26px;
+  }
+}
+
+@media (max-width: 480px) {
+  .year-grid {
+    grid-template-columns: 1fr;
   }
 }
 

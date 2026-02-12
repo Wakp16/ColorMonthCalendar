@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -22,13 +22,21 @@
       <header class="hero">
         <div class="month-nav" role="group" aria-label="Month navigation">
           <button id="prevMonth" class="ghost" type="button" aria-label="Previous month">
-            Prev
+            &#8592;
           </button>
           <button id="todayMonth" class="ghost" type="button" aria-label="Jump to current month">
             Today
           </button>
           <button id="nextMonth" class="ghost" type="button" aria-label="Next month">
-            Next
+            &#8594;
+          </button>
+        </div>
+        <div class="view-mode" role="group" aria-label="Calendar view mode">
+          <button id="monthViewBtn" class="ghost active" type="button" aria-pressed="true">
+            Month
+          </button>
+          <button id="yearViewBtn" class="ghost" type="button" aria-pressed="false">
+            Year
           </button>
         </div>
         <div class="hero-center">
